@@ -1,1 +1,207 @@
-print('you stank booty')
+import os
+import random
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def create_grid(size):
+    return [['O' for _ in range(size)] for _ in range(size)]
+
+def print_board(grid):
+    for row in grid:
+        print(' '.join(row))
+
+def is_valid_position(row, col, size):
+    return 0 <= row < size and 0 <= col < size
+
+def is_valid_guess(guess, size):
+    if len(guess) != 2:
+        return False
+    row, col = guess
+    return is_valid_position(row, col, size)
+
+def place_ship(grid, name, length, size):
+    while True:
+        try:
+            row = int(input(f"Enter the row index for the {name} (1 to {size}): ")) - 1
+            col = int(input(f"Enter the column index for the {name} (1 to {size}): ")) - 1
+
+            if is_valid_position(row, col, size):
+                break
+            else:
+                print("Invalid input. Try again.")
+        except ValueError:
+            print("Invalid input. Please enter valid row and column numbers.")
+
+    direction = input("Enter the direction (horizontal/vertical) for the ship: ").lower()
+
+    if direction == "horizontal":
+        if col + length > size:
+            print("Invalid ship placement. Ship does not fit on the grid.")
+            return False
+
+        for i in range(length):
+            if grid[row][col + i] != 'O':
+                print("Invalid ship placement. Overlapping with another ship.")
+                return False
+
+        for i in range(length):
+            grid[row][col + i] = name[0] + str(i + 1)
+
+    elif direction == "vertical":
+        if row + length > size:
+            print("Invalid ship placement. Ship does not fit on the grid.")
+            return False
+
+        for i in range(length):
+            if grid[row + i][col] != 'O':
+                print("Invalid ship placement. Overlapping with another ship.")
+                return False
+
+        for i in range(length):
+            grid[row + i][col] = name[0] + str(i + 1)
+
+    else:
+        print("Invalid direction. Please enter 'horizontal' or 'vertical'.")
+        return False
+
+    return True
+
+# Function to check if the guess hit a ship and if it was sunk
+def check_hit_and_sunk(guess, ships):
+    for ship in ships:
+        if guess in ship:
+            ship.remove(guess)
+            return "hit", True if not ship else False
+
+    return "miss", False
+
+def get_user_guess(size):
+    while True:
+        try:
+            guess_row = int(input(f"Enter your guess row (1 to {size}): ")) - 1
+            guess_col = int(input(f"Enter your guess column (1 to {size}): ")) - 1
+            guess = (guess_row, guess_col)
+
+            if is_valid_guess(guess, size):
+                return guess
+            else:
+                print(f"Invalid guess. Please enter numbers between 1 and {size}.")
+        except ValueError:
+            print("Invalid input. Please enter valid row and column numbers.")
+
+def get_ai_guess(size, opponent_guesses):
+    while True:
+        guess_row = random.randint(0, size - 1)
+        guess_col = random.randint(0, size - 1)
+        guess = (guess_row, guess_col)
+
+        if guess not in opponent_guesses:
+            return guess
+
+def battleship_game():
+    clear_screen()
+    print("Welcome to Battleship!")
+
+    while True:
+        try:
+            size = int(input("Enter the grid size (e.g., 5 for a 5x5 grid): "))
+            if size >= 2:
+                break
+            else:
+                print("Grid size must be at least 2. Try again.")
+        except ValueError:
+            print("Invalid input. Please enter a valid grid size.")
+
+    user_grid = create_grid(size)
+    opponent_grid = create_grid(size)
+
+    print("Your board:")
+    print_board(user_grid)
+
+    num_ships = int(input("Enter the number of ships you want to place: "))
+    user_ships = []
+
+    for i in range(num_ships):
+        name = input(f"Enter the name for Ship {i + 1}: ")
+        length = int(input("Enter the length of the ship: "))
+
+        while True:
+            if place_ship(user_grid, name, length, size):
+                user_ships.append([(row, col) for row in range(row, row + length) for col in range(col, col + length)])
+                break
+
+    opponent_ships = []
+    num_opponent_ships = num_ships
+
+    for i in range(num_opponent_ships):
+        name = f"Ship{i + 1}"
+        length = random.randint(2, 4)  # Randomly choose ship length between 2 and 4
+
+        while True:
+            if place_ship(opponent_grid, name, length, size):
+                opponent_ships.append([(row, col) for row in range(row, row + length) for col in range(col, col + length)])
+                break
+
+    user_guesses = []
+    opponent_guesses = []
+    max_attempts = 8
+
+    for attempt in range(max_attempts):
+        print(f"\nAttempt {attempt + 1}: Your Turn")
+        user_guess = get_user_guess(size)
+
+        user_guesses.append(user_guess)
+
+        result, sunk = check_hit_and_sunk(user_guess, opponent_ships)
+
+        if sunk:
+            print(f"Congratulations! You sunk the opponent's ship!")
+        elif result == "hit":
+            print("Congratulations! You hit an opponent's ship!")
+        else:
+            print("You missed! Try again.")
+            user_grid[user_guess[0]][user_guess[1]] = '*'
+
+        print("\nYour Board:")
+        print_board(user_grid)
+
+        print("\nOpponent's Board:")
+        for guess in opponent_guesses:
+            row, col = guess
+            opponent_grid[row][col] = 'X' if guess in user_ships else '*'
+        print_board(opponent_grid)
+
+        if not opponent_ships:
+            print("Congratulations! You've sunk all the opponent's ships!")
+            break
+
+        print(f"\nAttempt {attempt + 1}: Opponent's Turn")
+        opponent_guess = get_ai_guess(size, opponent_guesses)
+
+        opponent_guesses.append(opponent_guess)
+
+        result, sunk = check_hit_and_sunk(opponent_guess, user_ships)
+
+        if sunk:
+            print("The opponent hit and sunk your ship!")
+        elif result == "hit":
+            print("The opponent hit your ship!")
+        else:
+            print("The opponent missed!")
+
+    else:
+        print("Game over! You've used all your attempts.")
+        print("The remaining opponent's ships:")
+        for ship in opponent_ships:
+            print(f"{ship[0][0]}")
+
+    play_again_input = input("Do you want to play again? (yes/no): ").lower()
+    if play_again_input == 'yes':
+        battleship_game()
+    else:
+        print("Thanks for playing Battleship!")
+
+# Run the game
+battleship_game()
+
